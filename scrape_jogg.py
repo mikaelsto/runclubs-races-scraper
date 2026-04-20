@@ -42,16 +42,9 @@ BASE_URL = "https://www.jogg.se"
 
 CALENDAR_URL = (
     "https://www.jogg.se/Kalender/Tavlingar.aspx"
-    "?fdist=10&tdist=43&type=0&country=1&region=0"
+    "?fdist=10&tdist=100&type=0&country=1&region=0"
     "&tlopp=False&relay=False&surface=&tridist=0&title=1"
 )
-
-# Jogg.se region name → runclubs.se display region
-REGION_MAP: dict[str, str] = {
-    "stockholm":      "Stockholm",
-    "västra götaland": "Göteborg",
-    "skåne":          "Malmö",
-}
 
 # Distance category buckets (km)
 DIST_BUCKETS = [
@@ -60,10 +53,11 @@ DIST_BUCKETS = [
     ("Halvmaraton", 21.0,  22.49),
     ("30k",        22.5,  35.0),
     ("Maraton",    40.0,  43.5),
+    ("Ultra",      43.6, 100.0),
 ]
 
 # How many months ahead to scrape
-LOOKAHEAD_MONTHS = 6
+LOOKAHEAD_MONTHS = 9
 
 SHEET_HEADER = ["name", "date", "city", "county", "distance", "dist_cat", "region", "link"]
 
@@ -226,30 +220,18 @@ def _parse_cards(soup: BeautifulSoup) -> list[dict]:
         else:
             distance_str = km_str.strip()
 
-        # Region: appears as "Sverige / Västra Götaland" or similar
-        region_raw  = ""
-        region_disp = ""
-        region_match = re.search(r"Sverige\s*/\s*([^/,\n]+)", full_text, re.IGNORECASE)
-        if region_match:
-            region_raw  = region_match.group(1).strip()
-            region_disp = REGION_MAP.get(region_raw.lower(), "")
+        # County: read directly from div.county ("Sverige / Västra Götaland")
+        region_raw = ""
+        county_el = card.find("div", class_="county")
+        if county_el:
+            county_text = county_el.get_text(strip=True)
+            region_match = re.search(r"Sverige\s*/\s*(.+)$", county_text, re.IGNORECASE)
+            if region_match:
+                region_raw = region_match.group(1).strip()
 
-        if not region_disp:
-            continue  # outside the three target regions
-
-        # City: try to find a city element, otherwise use what we have
-        city = ""
-        # Look for a span/div that contains just the city name
-        for el in card.find_all(["span", "div", "p"]):
-            t = el.get_text(strip=True)
-            # Skip elements that look like the region line or are too long
-            if (t and len(t) < 60
-                    and "Sverige" not in t
-                    and not re.search(r"km|anmäl|anmälan", t, re.IGNORECASE)
-                    and not _parse_sv_date(t)
-                    and t != name):
-                city = t
-                break
+        # City: read directly from div.city
+        city_el = card.find("div", class_="city")
+        city = city_el.get_text(strip=True) if city_el else ""
 
         races.append({
             "name":     name,
@@ -258,7 +240,7 @@ def _parse_cards(soup: BeautifulSoup) -> list[dict]:
             "county":   region_raw,
             "distance": distance_str,
             "dist_cat": _dist_category(km_val) if km_val is not None else "",
-            "region":   region_disp,
+            "region":   region_raw,
             "link":     link,
         })
 

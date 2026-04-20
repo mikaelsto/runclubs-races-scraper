@@ -2,7 +2,7 @@ name: Scrape jogg.se races
 
 on:
   schedule:
-    - cron: "0 5 * * 1"   # Every Monday at 05:00 UTC (before runclubs page generator at 08:30)
+    - cron: "0 5 1 * *"   # 1st of each month at 05:00 UTC
   workflow_dispatch:        # Allow manual runs from GitHub UI
 
 permissions:
