@@ -1,9 +1,10 @@
 name: Scrape jogg.se races
 
 on:
-  schedule:
-    - cron: "0 5 1 * *"   # 1st of each month at 05:00 UTC
-  workflow_dispatch:        # Allow manual runs from GitHub UI
+  workflow_dispatch:        # Manual runs only
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
   contents: read            # Read-only — only writes to Google Sheet, not the repo
