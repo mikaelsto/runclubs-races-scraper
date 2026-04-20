@@ -154,8 +154,18 @@ def _fetch_month(session: requests.Session, year: int, month: int) -> BeautifulS
     try:
         resp = session.get(url, timeout=30)
         resp.raise_for_status()
-        log.debug("Fetched %s → %d bytes", url, len(resp.content))
-        return BeautifulSoup(resp.text, "html.parser")
+        log.info("Fetched %s → %d bytes, encoding=%s", url, len(resp.content), resp.encoding)
+        # Debug: log first 2000 chars of HTML to diagnose selector issues
+        if os.environ.get("LOG_LEVEL", "").upper() == "DEBUG":
+            log.debug("HTML preview:\n%s", resp.text[:2000])
+        soup = BeautifulSoup(resp.text, "html.parser")
+        # Log all unique div classes to help find the right selector
+        div_classes = set()
+        for d in soup.find_all("div", class_=True):
+            for c in d.get("class", []):
+                div_classes.add(c)
+        log.info("Div classes on page: %s", sorted(div_classes)[:40])
+        return soup
     except requests.RequestException as e:
         log.warning("Failed to fetch %s: %s", url, e)
         return None
@@ -163,8 +173,15 @@ def _fetch_month(session: requests.Session, year: int, month: int) -> BeautifulS
 
 def _parse_cards(soup: BeautifulSoup) -> list[dict]:
     """Extract race data from .calendaritem cards on the page."""
-    cards = soup.select("div.calendaritem")
-    log.debug("Found %d .calendaritem elements", len(cards))
+    # Try multiple selectors in case class name differs
+    cards = (
+        soup.select("div.calendaritem")
+        or soup.select(".calendaritem")
+        or soup.select("div.competitionitem")
+        or soup.select("div.race-item")
+        or soup.select("div.event-item")
+    )
+    log.info("Found %d race card elements", len(cards))
 
     races: list[dict] = []
     for card in cards:
