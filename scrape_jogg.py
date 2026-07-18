@@ -42,7 +42,7 @@ BASE_URL = "https://www.jogg.se"
 
 CALENDAR_URL = (
     "https://www.jogg.se/Kalender/Tavlingar.aspx"
-    "?fdist=10&tdist=100&type=0&country=1&region=0"
+    "?fdist=10&tdist=100&type=1&country=1&region=0"
     "&tlopp=False&relay=False&surface=&tridist=0&title=1"
 )
 
