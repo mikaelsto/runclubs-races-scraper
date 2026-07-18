@@ -42,7 +42,7 @@ BASE_URL = "https://www.jogg.se"
 
 CALENDAR_URL = (
     "https://www.jogg.se/Kalender/Tavlingar.aspx"
-    "?fdist=10&tdist=100&type=1&country=1&region=0"
+    "?fdist=5&tdist=1000&type=1&country=1&region=0"
     "&tlopp=False&relay=False&surface=&tridist=0&title=1"
 )
 
@@ -53,7 +53,7 @@ DIST_BUCKETS = [
     ("Halvmaraton", 21.0,  22.49),
     ("30k",        22.5,  35.0),
     ("Maraton",    40.0,  43.5),
-    ("Ultra",      43.6, 100.0),
+    ("Ultra",      43.6, 9999.0),
 ]
 
 # How many months ahead to scrape
@@ -184,7 +184,7 @@ def _parse_cards(soup: BeautifulSoup) -> list[dict]:
         if not name_tag:
             continue
         name = name_tag.get_text(strip=True)
-        if not name:
+        if not name or "parkrun" in name.lower():
             continue
 
         # ── Registration link ────────────────────────────────────────────────
