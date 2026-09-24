@@ -1,38 +1,49 @@
 # runclubs-races-scraper
 
-Scrapes upcoming running races from [jogg.se](https://www.jogg.se) and writes them to a Google Sheet. Part of the [runclubs.se](https://runclubs.se) data pipeline.
+Collects upcoming running races and merges them into a Google Sheet. Part of the [runclubs.se](https://runclubs.se) data pipeline.
 
 ## Pipeline
 
 ```
-jogg.se calendar  →  this scraper (mikaelsto/runclubs-races-scraper)
-                  →  Google Sheet (columns: name, date, city, county, distance, dist_cat, region, link)
-                  →  page generator (amandahultin/runclubs)
-                  →  runclubs.se/kommande-lopp
+jogg.se calendar   →  scrape_jogg.py   (GitHub Actions, manual dispatch)  ┐
+ahotu.com (manual) →  import_ahotu.py  (run locally from data/ahotu_*.csv) ┴→ Google Sheet "Loppkalendern feed" / Races
+                   →  page generator (amandahultin/runclubs)
+                   →  runclubs.se/loppkalender
 ```
 
-Scraper runs **Monday 05:00 UTC**. Page generator runs **Monday 08:30 UTC**.
+## Sources
+
+- **jogg.se** – running races in all of Sweden, 5–1000 km, parkruns excluded. One row per race distance.
+- **ahotu.com** – sits behind a Cloudflare bot check, so it can't be scraped from Actions.
+  Races are collected in a browser into `data/ahotu_<year>.csv` (one line per race,
+  distances separated by `;`) and merged with `python import_ahotu.py data/ahotu_2026.csv`.
+  Collected 2026-09-24 from the Ultramaraton/Maraton/Halvmaraton/10 km filter.
+
+## How the sheet is written (no wipe)
+
+Both importers use `sheets.merge_rows`, which never clears the sheet:
+
+- A row matching an existing one (same name + date, or same date/city with a similar
+  name and distance) is updated **only if it came from the same source**. A match from
+  another source just gets its empty cells filled — so the same race listed on both
+  jogg.se and ahotu shows up once.
+- New races are appended. Nothing is deleted; past races stay (the page generator skips them).
+- Columns the scrapers don't own — e.g. `official_link` — are never touched.
 
 ## Google Sheet columns
 
-| Col | Field      | Example              |
-|-----|------------|----------------------|
-| A   | name       | Göteborgsvarvet      |
-| B   | date       | 2025-05-17           |
-| C   | city       | Göteborg             |
-| D   | county     | Västra Götalands     |
-| E   | distance   | 21,1 km              |
-| F   | dist_cat   | Halvmaraton          |
-| G   | region     | Göteborg             |
-| H   | link       | https://... (or empty if no reg link found) |
-
-## Target regions
-
-- **Stockholm** (Stockholms county)
-- **Göteborg** (Västra Götalands county)
-- **Malmö** (Skåne county)
-
-Races shorter than 10 km are excluded.
+| Col | Field         | Example              |
+|-----|---------------|----------------------|
+| A   | name          | Göteborgsvarvet      |
+| B   | date          | 2026-05-16           |
+| C   | city          | Göteborg             |
+| D   | county        | Västra Götaland      |
+| E   | distance      | 21,1 km              |
+| F   | dist_cat      | Halvmaraton          |
+| G   | region        | Västra Götaland      |
+| H   | link          | registration link (jogg) or event page (ahotu) |
+| I   | official_link | set by hand, preferred by the page generator   |
+| J   | source        | `jogg` / `ahotu`     |
 
 ## Setup
 
@@ -60,9 +71,10 @@ export GOOGLE_SHEET_ID='1zVTWU3a-...'
 # Dry run (prints CSV, no sheet write)
 python scrape_jogg.py --dry-run
 
-# Full run
+# Full run (merges into the sheet)
 python scrape_jogg.py
 
-# Fast mode (skip detail pages, no registration links)
-python scrape_jogg.py --no-details --dry-run
+# ahotu: preview the merge, then write
+python import_ahotu.py data/ahotu_2026.csv --dry-run
+python import_ahotu.py data/ahotu_2026.csv
 ```

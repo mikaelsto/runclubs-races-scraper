@@ -16,14 +16,13 @@ Environment variables (required in production, optional for --dry-run):
     GOOGLE_SHEET_ID              – Target Google Sheet ID
 
 Usage:
-    python scrape_jogg.py              # writes to Google Sheet
+    python scrape_jogg.py              # merges into Google Sheet (no wipe)
     python scrape_jogg.py --dry-run    # prints CSV, no sheet write
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import os
 import re
@@ -282,21 +281,10 @@ def scrape_all() -> list[dict]:
 # ── Google Sheets ─────────────────────────────────────────────────────────────
 
 def write_to_sheet(rows: list[dict], sheet_id: str) -> None:
-    import gspread
-    from google.oauth2.service_account import Credentials
+    """Merge rows into the sheet — never clears it (see sheets.py)."""
+    from sheets import merge_rows, open_worksheet
 
-    raw = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
-    creds = Credentials.from_service_account_info(
-        json.loads(raw),
-        scopes=["https://www.googleapis.com/auth/spreadsheets"],
-    )
-    gc = gspread.authorize(creds)
-    ws = gc.open_by_key(sheet_id).get_worksheet(0)
-    ws.clear()
-
-    data = [SHEET_HEADER] + [[r[col] for col in SHEET_HEADER] for r in rows]
-    ws.update(range_name="A1", values=data)
-    log.info("Wrote %d rows (+ header) to sheet %s", len(rows), sheet_id)
+    merge_rows(open_worksheet(sheet_id), rows, source="jogg")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
